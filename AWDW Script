@@ -1,0 +1,99 @@
+/* 
+The business requirement is as follow:
+- Total Sales by Order
+- Total Sales at order level
+- line item count for each order
+- by country
+- by channel
+- by special offer
+- by date, by month, by year
+*/
+USE AWDWpt2;
+GO
+
+CREATE OR ALTER  VIEW vw.rptSalesByOrder
+AS
+
+SELECT s.SalesOrderID
+	 , c.[Year]
+	 , c.[Qrt]
+	 , c.[Quarter]
+	 , c.[Month]
+	 , c.[MonthName]
+	 , c.[Date]
+	 , t.SalesCountry
+	 , st.SalesType as 'Channel'
+	 , COUNT(s.LineItem) as 'LineItemCnt' 
+	 , SUM(s.SubTotal) as 'Total Sales'
+	-- , MAX(s.LineItem) as 'LineItemCnt'
+FROM vw.fSales s
+	INNER JOIN vw.dCalendar c
+	ON s.OrderDate = c.Date
+	INNER JOIN vw.dSalesTerritory t
+	ON s.TerritoryID = t.TerritoryID
+	INNER JOIN vw.dProduct p
+	ON s.ProductID = p.bkProductID
+	INNER JOIN vw.dSalesType st
+	ON s.OnlineOrderFlag = st.OnlineOrderFlag
+GROUP BY s.SalesOrderID
+	 , c.[Year]
+	 , c.[Qrt]
+	 , c.[Quarter]
+	 , c.[Month]
+	 , c.[MonthName]
+	 , c.[Date]
+	 , t.SalesCountry
+	 , st.SalesType
+-- ORDER BY s.SalesOrderID
+;
+GO
+-- 121,317 rows atomic (grainular) level
+-- 31,465 at the aggregated level
+
+CREATE OR ALTER PROCEDURE spSalesByOrder
+AS
+
+SELECT s.SalesOrderID
+	 , c.[Year]
+	 , c.[Qrt]
+	 , c.[Quarter]
+	 , c.[Month]
+	 , c.[MonthName]
+	 , c.[Date]
+	 , t.SalesCountry
+	 , st.SalesType as 'Channel'
+	 , MAX(s.LineItem) as 'LineItemCnt' 
+	 , SUM(s.SubTotal) as 'Total Sales'
+FROM vw.fSales s
+	INNER JOIN vw.dCalendar c
+	ON s.OrderDate = c.Date
+	INNER JOIN vw.dSalesTerritory t
+	ON s.TerritoryID = t.TerritoryID
+	INNER JOIN vw.dProduct p
+	ON s.ProductID = p.bkProductID
+	INNER JOIN vw.dSalesType st
+	ON s.OnlineOrderFlag = st.OnlineOrderFlag
+GROUP BY s.SalesOrderID
+	 , c.[Year]
+	 , c.[Qrt]
+	 , c.[Quarter]
+	 , c.[Month]
+	 , c.[MonthName]
+	 , c.[Date]
+	 , t.SalesCountry
+	 , st.SalesType
+;
+GO
+
+EXECUTE spSalesByOrder;
+
+EXEC spSalesByOrder;
+
+SELECT DISTINCT c.Year
+FROM vw.dCalendar c
+	INNER JOIN vw.fSales s
+	 ON c.bkDateKey = s.bkDatekey
+ORDER BY 1
+
+SELECT SalesType
+FROM stg.SalesType
